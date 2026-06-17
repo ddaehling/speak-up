@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Describe It!">
+<meta name="theme-color" content="#EEF2F8">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<title>Describe It! · Picture Trainer</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='24' fill='%233B6FE0'/%3E%3Ccircle cx='44' cy='44' r='20' fill='none' stroke='white' stroke-width='8'/%3E%3Cline x1='58' y1='58' x2='76' y2='76' stroke='white' stroke-width='9' stroke-linecap='round'/%3E%3C/svg%3E">
+<style>
+:root{
+  --bg-0:#EEF2F8;
+  --surface:rgba(255,255,255,0.66);
+  --surface-strong:rgba(255,255,255,0.82);
+  --surface-solid:#FBFCFE;
+  --surface-stroke:rgba(255,255,255,0.75);
+  --surface-edge:rgba(17,24,39,0.07);
+  --scrim:rgba(12,16,28,0.20);
+  --ink-900:#1B2233; --ink-700:#333B4E; --ink-600:#4A5468; --ink-400:#8A93A6;
+  --success:#1FB97A; --success-glow:#46E3A4;
+  --gold:#F2B53C; --silver:#AEB7C7; --bronze:#CE8E54;
+  --accent:#3B6FE0; --accent-2:#E7B33C; --focus:#1B2233;
+  --radius-card:26px;
+  --shadow-glass:0 10px 30px -12px rgba(20,28,48,.28), 0 2px 8px -3px rgba(20,28,48,.18);
+  --shadow-soft:0 6px 18px -10px rgba(20,28,48,.30);
+  --photo-shadow:0 18px 50px -18px rgba(20,28,48,.55),0 4px 14px -6px rgba(20,28,48,.4);
+  --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,system-ui,sans-serif;
+  --font-round:ui-rounded,"SF Pro Rounded",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,sans-serif;
+  --ease-anticipate:cubic-bezier(.34,1.56,.64,1);
+  --ease-out-soft:cubic-bezier(.16,1,.3,1);
+  --fs:1;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;height:100%;overscroll-behavior:none;background:var(--bg-0);}
+body{font-family:var(--font);color:var(--ink-900);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;font-size:calc(16px*var(--fs));}
+#bg-fallback{position:fixed;inset:0;z-index:0;background:
+  radial-gradient(120% 90% at 12% 8%, #DCE7FF 0%, transparent 55%),
+  radial-gradient(120% 100% at 88% 4%, #EAE6FF 0%, transparent 50%),
+  radial-gradient(140% 120% at 70% 100%, #E4F6FF 0%, transparent 55%),
+  linear-gradient(160deg,#EEF3FB,#E9EEF8 60%,#EAF1F9);}
+canvas#bg{position:fixed;inset:0;z-index:1;display:block;width:100%;height:100%;}
+canvas#fx{position:fixed;inset:0;z-index:90;pointer-events:none;width:100%;height:100%;}
+.app-scrim{position:fixed;inset:0;z-index:2;pointer-events:none;background:radial-gradient(130% 100% at 50% 30%, transparent 40%, var(--scrim) 130%);}
+
+#app{position:fixed;inset:0;z-index:10;display:flex;flex-direction:column;overflow:hidden;}
+.screen{position:absolute;inset:0;display:none;flex-direction:column;}
+#app[data-screen="gallery"] #screen-gallery{display:flex;}
+#app[data-screen="picture"] #screen-picture{display:flex;}
+/* picture view hides the aurora behind a flat colour to save GPU */
+#app[data-screen="picture"]~#bg-fallback,#app[data-screen="picture"]~canvas#bg{opacity:0;}
+#app[data-screen="picture"]~.app-scrim{opacity:0;}
+#flatbg{position:fixed;inset:0;z-index:0;background:var(--bg-0);opacity:0;transition:opacity .3s;pointer-events:none;}
+#app[data-screen="picture"]~#flatbg{opacity:1;}
+
+.glass{background:var(--surface);-webkit-backdrop-filter:blur(22px) saturate(1.4);backdrop-filter:blur(22px) saturate(1.4);border:1px solid var(--surface-stroke);box-shadow:var(--shadow-glass);}
+.btn{font-family:var(--font-round);font-weight:700;border:none;cursor:pointer;border-radius:16px;padding:13px 20px;font-size:calc(16px*var(--fs));
+  transition:transform .15s var(--ease-out-soft),box-shadow .2s,background .2s,opacity .2s;touch-action:manipulation;color:#fff;background:var(--accent);
+  box-shadow:0 8px 18px -8px color-mix(in srgb,var(--accent) 70%, transparent);}
+.btn:active{transform:scale(.96);}
+.btn.ghost{background:var(--surface-strong);color:var(--ink-900);box-shadow:var(--shadow-soft);}
+.btn:disabled{opacity:.5;cursor:default;}
+.btn:focus-visible,button:focus-visible,a:focus-visible{outline:3px solid var(--focus);outline-offset:2px;}
+
+/* ============ GALLERY ============ */
+#screen-gallery{overflow-y:auto;-webkit-overflow-scrolling:touch;}
+.g-head{position:sticky;top:0;z-index:20;padding:max(12px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) 12px max(16px,env(safe-area-inset-left));
+  background:var(--surface-strong);-webkit-backdrop-filter:blur(20px) saturate(1.4);backdrop-filter:blur(20px) saturate(1.4);border-bottom:1px solid var(--surface-edge);box-shadow:var(--shadow-soft);}
+.g-top{display:flex;align-items:center;gap:12px;max-width:1000px;margin:0 auto;}
+.logo-badge{width:46px;height:46px;border-radius:14px;background:linear-gradient(150deg,var(--accent),color-mix(in srgb,var(--accent) 55%, #7A4FE0));
+  display:grid;place-items:center;box-shadow:0 8px 18px -9px var(--accent);flex:none;animation:floaty 5s ease-in-out infinite;}
+.logo-badge svg{width:26px;height:26px;}
+.g-titles{flex:1;min-width:0;}
+.g-title{font-family:var(--font-round);font-weight:800;font-size:calc(26px*var(--fs));letter-spacing:-.02em;line-height:1;
+  background:linear-gradient(120deg,var(--ink-900),var(--accent));-webkit-background-clip:text;background-clip:text;color:transparent;}
+.g-sub{color:var(--ink-600);font-size:calc(13px*var(--fs));font-weight:600;margin-top:3px;}
+.xlink{font-family:var(--font-round);font-weight:700;font-size:calc(14px*var(--fs));color:var(--ink-700);background:var(--surface-strong);
+  border:1.5px solid var(--surface-edge);border-radius:13px;padding:9px 13px;text-decoration:none;white-space:nowrap;flex:none;}
+.g-meterrow{max-width:1000px;margin:12px auto 2px;display:flex;align-items:center;gap:10px;}
+.g-meter{flex:1;height:9px;border-radius:5px;background:rgba(120,130,150,.22);overflow:hidden;}
+.g-meter>span{display:block;height:100%;width:0%;border-radius:5px;background:linear-gradient(90deg,var(--accent),var(--accent-2));transition:width .5s var(--ease-out-soft);}
+.g-meterlbl{font-family:var(--font-round);font-weight:800;font-size:calc(13px*var(--fs));color:var(--ink-700);white-space:nowrap;}
+.region-filter{display:flex;gap:7px;max-width:1000px;margin:11px auto 0;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px;scrollbar-width:none;}
+.region-filter::-webkit-scrollbar{display:none;}
+.rf{font-family:var(--font-round);font-weight:700;font-size:calc(13.5px*var(--fs));color:var(--ink-600);background:var(--surface-strong);border:1.5px solid var(--surface-edge);
+  border-radius:12px;padding:8px 13px;cursor:pointer;white-space:nowrap;touch-action:manipulation;}
+.rf[aria-pressed="true"]{background:var(--accent);color:#fff;border-color:transparent;}
+
+.g-body{max-width:1000px;margin:0 auto;width:100%;padding:6px 16px max(24px,env(safe-area-inset-bottom));}
+.region-sec{margin:18px 0 4px;}
+.region-sec.hide{display:none;}
+.region-head{display:flex;align-items:center;gap:9px;margin:8px 2px;}
+.region-dot{width:11px;height:11px;border-radius:50%;flex:none;}
+.region-title{font-family:var(--font-round);font-weight:800;font-size:calc(15px*var(--fs));color:var(--ink-900);}
+.region-count{margin-left:auto;font-size:calc(12px*var(--fs));font-weight:700;color:var(--ink-400);}
+.thumb-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px;}
+.thumb{position:relative;border-radius:20px;overflow:hidden;cursor:pointer;aspect-ratio:4/3;box-shadow:var(--shadow-glass);background:#dfe6f0;border:none;padding:0;display:block;touch-action:manipulation;}
+.thumb img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .5s var(--ease-out-soft);}
+.thumb:hover img{transform:scale(1.05);}
+.thumb .label{position:absolute;left:0;right:0;bottom:0;padding:30px 12px 11px;text-align:left;
+  background:linear-gradient(transparent 30%,rgba(12,16,28,.82));color:#fff;}
+.thumb .label .t{font-family:var(--font-round);font-weight:800;font-size:calc(16px*var(--fs));line-height:1.1;}
+.thumb .label .s{font-size:calc(12px*var(--fs));opacity:.85;margin-top:2px;font-weight:600;}
+.thumb .rbadge{position:absolute;top:9px;left:9px;width:13px;height:13px;border-radius:50%;box-shadow:0 0 0 3px rgba(255,255,255,.55);}
+.thumb .pring{position:absolute;top:7px;right:7px;width:34px;height:34px;}
+.thumb .pring .bg2{stroke:rgba(255,255,255,.45);} .thumb .pring .fg2{stroke:#fff;stroke-linecap:round;transition:stroke-dashoffset .5s var(--ease-out-soft);}
+.thumb .donecheck{position:absolute;top:7px;right:7px;width:34px;height:34px;border-radius:50%;background:var(--success);display:none;place-items:center;color:#fff;font-weight:900;box-shadow:0 4px 10px -3px var(--success);}
+.thumb.done .pring{display:none;} .thumb.done .donecheck{display:grid;}
+
+/* ============ PICTURE VIEW ============ */
+#screen-picture{background:transparent;}
+.p-top{flex:none;display:flex;align-items:center;gap:8px;padding:max(10px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) 10px max(12px,env(safe-area-inset-left));z-index:30;
+  background:var(--surface-strong);-webkit-backdrop-filter:blur(20px) saturate(1.4);backdrop-filter:blur(20px) saturate(1.4);border-bottom:1px solid var(--surface-edge);box-shadow:var(--shadow-soft);}
+.icon-btn{width:44px;height:44px;border-radius:14px;flex:none;font-size:20px;display:grid;place-items:center;background:var(--surface-strong);box-shadow:var(--shadow-soft);color:var(--ink-700);border:none;cursor:pointer;font-family:var(--font-round);font-weight:800;}
+.p-titlewrap{flex:1;min-width:0;text-align:center;line-height:1.05;}
+.p-title{font-family:var(--font-round);font-weight:800;font-size:calc(17px*var(--fs));color:var(--ink-900);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.p-region{font-size:calc(11.5px*var(--fs));font-weight:700;color:#fff;background:var(--accent);border-radius:8px;padding:1px 8px;display:inline-block;margin-top:2px;}
+.mode-seg{display:flex;background:var(--surface-strong);border:1.5px solid var(--surface-edge);border-radius:13px;overflow:hidden;flex:none;}
+.mode-seg button{border:none;background:transparent;padding:8px 11px;font-family:var(--font-round);font-weight:700;font-size:calc(13px*var(--fs));color:var(--ink-600);cursor:pointer;white-space:nowrap;}
+.mode-seg button[aria-pressed="true"]{background:var(--accent);color:#fff;}
+.p-ring{width:44px;height:44px;flex:none;position:relative;}
+.p-ring svg{transform:rotate(-90deg);} .p-ring .bg2{stroke:rgba(120,130,150,.25);} .p-ring .fg2{stroke:var(--accent);stroke-linecap:round;transition:stroke-dashoffset .5s var(--ease-out-soft);}
+.p-ring .lbl{position:absolute;inset:0;display:grid;place-items:center;font-family:var(--font-round);font-weight:800;font-size:calc(12px*var(--fs));color:var(--ink-700);}
+
+.photo-wrap{flex:1;min-height:0;position:relative;display:grid;place-items:center;padding:10px;}
+.photo-frame{position:relative;border-radius:var(--photo-radius,20px);box-shadow:var(--photo-shadow);overflow:visible;}
+.photo-frame img{width:100%;height:100%;object-fit:cover;display:block;border-radius:inherit;}
+.photo-scrim{position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  background:linear-gradient(rgba(12,16,28,.16),transparent 16%,transparent 80%,rgba(12,16,28,.18));}
+.p-arrow{position:absolute;top:50%;transform:translateY(-50%);width:50px;height:50px;border-radius:50%;z-index:25;
+  background:var(--surface-strong);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);box-shadow:var(--shadow-glass);border:1px solid var(--surface-stroke);
+  display:grid;place-items:center;font-size:22px;color:var(--ink-700);cursor:pointer;font-family:var(--font-round);font-weight:800;}
+.p-arrow.prev{left:max(8px,env(safe-area-inset-left));} .p-arrow.next{right:max(8px,env(safe-area-inset-right));}
+.p-hint{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);z-index:25;font-size:calc(13px*var(--fs));font-weight:700;color:var(--ink-700);
+  background:var(--surface-strong);padding:8px 14px;border-radius:14px;box-shadow:var(--shadow-soft);pointer-events:none;transition:opacity .3s;}
+
+/* hotspot dot */
+.hs{position:absolute;width:52px;height:52px;transform:translate(-50%,-50%);background:none;border:none;padding:0;cursor:pointer;touch-action:manipulation;z-index:5;}
+.hs .glow{position:absolute;inset:-9px;border-radius:50%;background:var(--hcol);opacity:.30;animation:dot-pulse 2.4s var(--ease-out-soft) infinite;animation-delay:var(--hd,0s);}
+.hs .core{position:absolute;top:50%;left:50%;width:24px;height:24px;border-radius:50%;transform:translate(-50%,-50%);
+  background:var(--hcol);border:2.5px solid #fff;box-shadow:0 0 0 4px var(--hring),0 3px 10px -2px rgba(20,28,48,.6);
+  display:grid;place-items:center;font-size:12px;line-height:1;transition:width .2s var(--ease-anticipate),height .2s var(--ease-anticipate),background .2s;}
+.hs.said .core,.hs.found .core{width:26px;height:26px;}
+.hs.said .core{background:var(--hcol);box-shadow:0 0 0 4px rgba(242,181,60,.55),0 3px 10px -2px rgba(20,28,48,.6);}
+.hs.said .core::after{content:"✓";color:#fff;font-weight:900;font-size:13px;}
+.hs.found:not(.said) .core::after{content:"";}
+.hs.found:not(.said) .glow{opacity:.18;}
+.hs.said .glow{opacity:.16;animation:none;}
+.hs.said,.hs.found{opacity:.92;}
+.hs:focus-visible{outline:3px solid #fff;outline-offset:0;border-radius:50%;}
+/* challenge mode: dots dimmed + uniform */
+#screen-picture.challenge .hs:not(.said) .core{background:rgba(255,255,255,.88);border-color:rgba(40,50,70,.7);border-style:dashed;}
+#screen-picture.challenge .hs:not(.said) .core::after{content:"?";color:#23293a;font-weight:900;font-size:13px;}
+#screen-picture.challenge .hs:not(.said) .glow{opacity:.14;background:rgba(120,130,150,.7);}
+@keyframes dot-pulse{0%,100%{transform:scale(1);opacity:.30;}50%{transform:scale(1.5);opacity:.10;}}
+@keyframes floaty{0%,100%{transform:translateY(0) rotate(-2deg);}50%{transform:translateY(-6px) rotate(2deg);}}
+
+/* reveal card */
+.card-scrim{position:fixed;inset:0;z-index:70;background:rgba(16,20,32,.10);opacity:0;pointer-events:none;transition:opacity .2s;}
+.card-scrim.show{opacity:1;pointer-events:auto;}
+.rcard{position:fixed;z-index:80;width:min(290px,80vw);border-radius:22px;padding:15px 16px 14px;opacity:0;pointer-events:none;
+  background:rgba(255,255,255,.92);-webkit-backdrop-filter:blur(26px) saturate(1.5);backdrop-filter:blur(26px) saturate(1.5);
+  border:1.5px solid rgba(255,255,255,.85);box-shadow:0 0 0 5px var(--cring),0 22px 50px -18px rgba(20,28,48,.6);
+  transform:scale(.86);transition:opacity .2s,transform .34s var(--ease-anticipate);}
+.rcard.show{opacity:1;pointer-events:auto;transform:scale(1);}
+.rcard.as-sheet{position:fixed;left:0;right:0;bottom:0;top:auto;width:auto;max-width:560px;margin:0 auto;border-radius:26px 26px 0 0;
+  transform:translateY(105%);transition:transform .3s var(--ease-anticipate),opacity .2s;padding-bottom:max(18px,env(safe-area-inset-bottom));}
+.rcard.as-sheet.show{transform:translateY(0);}
+.rcard .grab{width:40px;height:5px;border-radius:3px;background:rgba(120,130,150,.4);margin:-4px auto 10px;display:none;}
+.rcard.as-sheet .grab{display:block;}
+.rc-close{position:absolute;top:10px;right:11px;width:30px;height:30px;border-radius:9px;border:none;background:rgba(120,130,150,.14);color:var(--ink-600);font-size:16px;cursor:pointer;font-weight:800;display:grid;place-items:center;}
+.rc-chip{display:inline-flex;align-items:center;gap:6px;font-family:var(--font-round);font-weight:800;font-size:calc(12px*var(--fs));color:#fff;background:var(--cinkbg);padding:4px 10px;border-radius:10px;}
+.rc-word{font-family:var(--font-round);font-weight:800;font-size:calc(25px*var(--fs));color:var(--ink-900);line-height:1.1;margin:11px 0 0;letter-spacing:-.01em;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.rc-de{font-size:calc(13px*var(--fs));font-weight:600;color:var(--ink-600);}
+.rc-spk{width:30px;height:30px;border-radius:9px;border:none;background:color-mix(in srgb,var(--ccore) 14%, white);color:var(--ccore);cursor:pointer;font-size:15px;display:grid;place-items:center;flex:none;}
+.rc-where{display:flex;align-items:center;gap:6px;font-size:calc(13px*var(--fs));color:var(--ink-600);font-weight:600;margin:8px 0 0;}
+.rc-where b{color:var(--ccore);}
+.rc-model{margin:11px 0 0;padding:11px 13px;border-radius:14px;background:color-mix(in srgb,var(--ccore) 9%, white);
+  border:1px solid color-mix(in srgb,var(--ccore) 20%, transparent);font-size:calc(15.5px*var(--fs));line-height:1.4;color:var(--ink-900);font-weight:500;}
+.rc-saymore{margin:9px 0 0;font-size:calc(13.5px*var(--fs));color:var(--ink-700);display:flex;gap:6px;align-items:baseline;line-height:1.4;}
+.rc-saymore .plus{color:var(--ccore);font-weight:800;flex:none;}
+.rc-said{margin:14px 0 0;width:100%;background:var(--ccore);font-size:calc(16px*var(--fs));padding:13px;border-radius:14px;}
+.rc-said.done2{background:var(--gold);}
+.rc-cover{text-align:center;padding:6px 0 2px;}
+.rc-cover .ct{font-family:var(--font-round);font-weight:800;font-size:calc(18px*var(--fs));margin:6px 0;color:var(--ink-900);}
+.rc-cover .cs{font-size:calc(13.5px*var(--fs));color:var(--ink-600);margin-bottom:12px;}
+.rc-selfcheck{display:flex;gap:8px;margin:12px 0 0;}
+.rc-selfcheck button{flex:1;font-family:var(--font-round);font-weight:700;font-size:calc(14px*var(--fs));padding:11px;border-radius:13px;border:1.5px solid var(--surface-edge);background:var(--surface-strong);color:var(--ink-700);cursor:pointer;}
+.rc-selfcheck button.good{background:color-mix(in srgb,var(--success) 16%, white);color:#0a7d57;border-color:transparent;}
+
+/* completion end card */
+.end-scrim{position:fixed;inset:0;z-index:85;background:rgba(12,16,28,.4);opacity:0;pointer-events:none;transition:opacity .3s;backdrop-filter:blur(3px);}
+.end-scrim.show{opacity:1;pointer-events:auto;}
+.end-card{position:fixed;left:50%;bottom:0;transform:translate(-50%,105%);z-index:86;width:min(460px,100%);
+  border-radius:26px 26px 0 0;padding:26px 24px max(26px,env(safe-area-inset-bottom));text-align:center;opacity:0;pointer-events:none;
+  transition:transform .4s var(--ease-anticipate),opacity .3s;}
+.end-card.show{transform:translate(-50%,0);opacity:1;pointer-events:auto;}
+@media(min-height:640px){.end-card{bottom:auto;top:50%;transform:translate(-50%,-46%) scale(.96);border-radius:26px;}
+  .end-card.show{transform:translate(-50%,-50%) scale(1);}}
+.end-medal{width:74px;height:74px;border-radius:50%;background:var(--success);display:grid;place-items:center;margin:0 auto 8px;color:#fff;font-size:40px;font-weight:900;box-shadow:0 12px 26px -10px var(--success);animation:medal-pop .7s var(--ease-anticipate) both;}
+@keyframes medal-pop{0%{transform:scale(0) rotate(-25deg);opacity:0;}60%{transform:scale(1.16);}100%{transform:scale(1);opacity:1;}}
+.end-card h2{font-family:var(--font-round);font-size:calc(24px*var(--fs));margin:4px 0 4px;}
+.end-stats{display:flex;justify-content:center;gap:18px;margin:14px 0 4px;}
+.end-stats .s{display:flex;flex-direction:column;}
+.end-stats .v{font-family:var(--font-round);font-weight:800;font-size:calc(22px*var(--fs));color:var(--ink-900);}
+.end-stats .k{font-size:calc(11px*var(--fs));color:var(--ink-400);font-weight:700;}
+.end-actions{display:flex;flex-direction:column;gap:9px;margin-top:18px;}
+.model-box{margin:14px 0 0;padding:14px 15px;border-radius:16px;background:var(--surface-strong);box-shadow:var(--shadow-soft);text-align:left;display:none;}
+.model-box.show{display:block;animation:fadein .3s ease both;}
+.model-box .mt{font-family:var(--font-round);font-weight:800;font-size:calc(14px*var(--fs));color:var(--ink-700);margin-bottom:8px;}
+.model-box p{margin:0;line-height:1.55;font-size:calc(15px*var(--fs));}
+.model-box .ln{display:block;}
+@keyframes fadein{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
+
+/* onboarding + offline pill + toast */
+.ob-back{position:fixed;inset:0;z-index:95;background:rgba(16,20,32,.5);display:none;align-items:center;justify-content:center;padding:24px;backdrop-filter:blur(4px);}
+.ob-back.show{display:flex;}
+.ob-card{width:min(380px,100%);text-align:center;padding:28px 24px;border-radius:var(--radius-card);}
+.ob-emoji{font-size:54px;line-height:1;}
+.ob-card h3{font-family:var(--font-round);font-size:calc(20px*var(--fs));margin:10px 0;}
+.ob-dots{display:flex;gap:7px;justify-content:center;margin:16px 0 6px;}
+.ob-dots i{width:8px;height:8px;border-radius:50%;background:rgba(120,130,150,.35);}
+.ob-dots i.on{background:var(--accent);width:22px;border-radius:5px;}
+.offline-pill{position:fixed;left:50%;bottom:calc(14px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(20px);z-index:88;
+  font-size:calc(13px*var(--fs));font-weight:700;color:var(--ink-700);padding:9px 15px;border-radius:14px;opacity:0;transition:opacity .3s,transform .3s;pointer-events:none;}
+.offline-pill.show{opacity:1;transform:translateX(-50%) translateY(0);}
+.toast{position:fixed;left:50%;top:calc(64px + env(safe-area-inset-top));transform:translate(-50%,-16px);z-index:88;padding:9px 16px;border-radius:14px;
+  font-weight:700;font-size:calc(14px*var(--fs));color:var(--ink-900);opacity:0;transition:opacity .25s,transform .25s;pointer-events:none;}
+.toast.show{opacity:1;transform:translate(-50%,0);}
+
+@media (prefers-reduced-motion: reduce){*{animation-duration:.001ms!important;animation-iteration-count:1!important;}}
+.reduce-motion .hs .glow,.reduce-motion .logo-badge{animation:none!important;}
+.reduce-motion .hs .glow{opacity:.26;}
+</style>
+</head>
+<body data-region="london">
+<canvas id="bg" aria-hidden="true"></canvas>
+<div id="bg-fallback" aria-hidden="true"></div>
+<div id="flatbg" aria-hidden="true"></div>
+<div class="app-scrim" aria-hidden="true"></div>
+<canvas id="fx" aria-hidden="true"></canvas>
+
+<div id="app" data-screen="gallery">
+
+  <!-- ===== GALLERY ===== -->
+  <section class="screen" id="screen-gallery" aria-label="Picture gallery">
+    <header class="g-head">
+      <div class="g-top">
+        <div class="logo-badge"><svg viewBox="0 0 100 100"><circle cx="42" cy="42" r="22" fill="none" stroke="#fff" stroke-width="8"/><line x1="58" y1="58" x2="78" y2="78" stroke="#fff" stroke-width="9" stroke-linecap="round"/></svg></div>
+        <div class="g-titles">
+          <div class="g-title">Describe It!</div>
+          <div class="g-sub">Pick a picture. Tap the dots. Say the words.</div>
+        </div>
+        <a class="xlink" href="index.html" aria-label="Go to Speak Up">← Speak&nbsp;Up!</a>
+      </div>
+      <div class="g-meterrow">
+        <span class="g-meterlbl" id="globalMeterLbl">0 / 11</span>
+        <div class="g-meter"><span id="globalMeter"></span></div>
+      </div>
+      <div class="region-filter" id="regionFilter" role="group" aria-label="Filter by region">
+        <button class="rf" data-region="all" aria-pressed="true">All</button>
+        <button class="rf" data-region="london" aria-pressed="false">London</button>
+        <button class="rf" data-region="wales" aria-pressed="false">Wales</button>
+        <button class="rf" data-region="liverpool" aria-pressed="false">Liverpool</button>
+        <button class="rf" data-region="ireland" aria-pressed="false">Ireland</button>
+      </div>
+    </header>
+    <div class="g-body" id="galleryBody"></div>
+  </section>
+
+  <!-- ===== PICTURE VIEW ===== -->
+  <section class="screen" id="screen-picture" aria-label="Describe the picture">
+    <header class="p-top">
+      <button class="icon-btn" id="backBtn" aria-label="Back to gallery">‹</button>
+      <div class="p-titlewrap">
+        <div class="p-title" id="pTitle">—</div>
+        <span class="p-region" id="pRegion">—</span>
+      </div>
+      <div class="mode-seg" id="modeSeg" role="group" aria-label="Mode">
+        <button data-mode="explore" aria-pressed="true">🔍 Explore</button>
+        <button data-mode="challenge" aria-pressed="false">🎯 Challenge</button>
+      </div>
+      <div class="p-ring">
+        <svg width="44" height="44" viewBox="0 0 44 44"><circle class="bg2" cx="22" cy="22" r="18" fill="none" stroke-width="4"/><circle class="fg2" id="pRingFg" cx="22" cy="22" r="18" fill="none" stroke-width="4" stroke-dasharray="113" stroke-dashoffset="113"/></svg>
+        <div class="lbl" id="pRingLbl">0/7</div>
+      </div>
+    </header>
+    <div class="photo-wrap" id="photoWrap">
+      <div class="photo-frame" id="photoFrame">
+        <img id="photoImg" alt="" decoding="async">
+        <div class="photo-scrim"></div>
+      </div>
+      <button class="p-arrow prev" id="prevBtn" aria-label="Previous picture">‹</button>
+      <button class="p-arrow next" id="nextBtn" aria-label="Next picture">›</button>
+      <div class="p-hint" id="pHint">Tap a glowing dot to start 👆</div>
+    </div>
+  </section>
+</div>
+
+<!-- overlays -->
+<div class="card-scrim" id="cardScrim"></div>
+<div class="rcard glass" id="rcard" role="dialog" aria-label="Hotspot tip" aria-modal="false"></div>
+
+<div class="end-scrim" id="endScrim"></div>
+<div class="end-card glass" id="endCard" role="dialog" aria-modal="true" aria-label="Picture complete">
+  <div class="end-medal">✓</div>
+  <h2 id="endHead">You can describe it! 🎉</h2>
+  <div class="end-stats" id="endStats"></div>
+  <div class="model-box" id="modelBox"><div class="mt">How a strong student might say it:</div><p id="modelText"></p></div>
+  <div class="end-actions">
+    <button class="btn ghost" id="sayAllBtn">📝 Say it all (example)</button>
+    <button class="btn" id="speakupBtn">Now do it for real → Speak Up!</button>
+    <button class="btn ghost" id="nextPicBtn">Next picture →</button>
+    <button class="btn ghost" id="backGalleryBtn" style="background:transparent;box-shadow:none;color:var(--ink-600)">Back to gallery</button>
+  </div>
+</div>
+
+<div class="ob-back" id="obBack" role="dialog" aria-modal="true" aria-label="How it works">
+  <div class="ob-card glass">
+    <div class="ob-emoji" id="obEmoji">👆</div>
+    <h3 id="obTitle">Tap the glowing dots — learn the English word.</h3>
+    <div class="ob-dots" id="obDots" aria-hidden="true"><i class="on"></i><i></i><i></i></div>
+    <button class="btn big" id="obNext" style="width:100%;margin-top:6px">Next</button>
+    <button id="obSkip" style="margin-top:10px;background:none;border:none;color:var(--ink-400);font-weight:700;font-family:var(--font-round);font-size:calc(13.5px*var(--fs));cursor:pointer">Skip</button>
+  </div>
+</div>
+
+<div class="offline-pill glass" id="offlinePill">Saving for offline…</div>
+<div class="toast glass" id="toast"></div>
+
+<script>
+"use strict";
+(function(){
+const $=s=>document.querySelector(s), $$=s=>Array.from(document.querySelectorAll(s));
+const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
+const app=$("#app");
+
+/* ---------- storage ---------- */
+const KEY="describeit.v1";
+const store={ ok:true, mem:null,
+  read(){ try{const r=localStorage.getItem(KEY);return r?JSON.parse(r):null;}catch(e){this.ok=false;return this.mem;} },
+  write(o){ this.mem=o; try{localStorage.setItem(KEY,JSON.stringify(o));}catch(e){this.ok=false;} } };
+
+/* ---------- design tokens reused from Speak Up! ---------- */
+const REGIONS={
+  london   :{c:["#DCE7FF","#E7F0FF","#EAE6FF","#E4F6FF"],accent:"#3B6FE0",accent2:"#7A8Cff",label:"London"},
+  wales    :{c:["#E2F4EA","#E9F6E6","#DFF3F0","#F0FBE8"],accent:"#3FA15A",accent2:"#E7B33C",label:"Wales"},
+  liverpool:{c:["#FBEDE6","#FCEFE2","#FFF0E8","#F6E9DF"],accent:"#C8453A",accent2:"#E79A3C",label:"Liverpool"},
+  ireland  :{c:["#E4F5EA","#E9F8EC","#DFF4E9","#EFFBEA"],accent:"#2FA66B",accent2:"#E79A3C",label:"Ireland"},
+};
+const CATS={
+  landmark :{core:"#C8453A",glow:"200,69,58",emoji:"🏛️",label:"Landmark"},
+  people   :{core:"#9A4FD8",glow:"154,79,216",emoji:"🧑",label:"People"},
+  transport:{core:"#E79A3C",glow:"231,154,60",emoji:"🚌",label:"Transport"},
+  nature   :{core:"#1F9E6B",glow:"31,158,107",emoji:"🌿",label:"Nature"},
+  sky      :{core:"#2C7DC4",glow:"44,125,196",emoji:"☁️",label:"Sky"},
+  object   :{core:"#5B7A99",glow:"91,122,153",emoji:"💡",label:"Object"},
+};
+
+/* ---------- the 11 pictures ---------- */
+const PICTURES=[
+ {id:"big-ben",slug:"london-big-ben",title:"Big Ben",region:"london",ar:"4/3",
+  model:"This is a photo of London. In the middle I can see Big Ben, a tall clock tower. On the right there are the Houses of Parliament. In the middle there is a red double-decker bus and a black taxi. In the foreground two tourists are taking a photo, and on the right a man is looking at a map. The sky is blue with some white clouds. I think it looks like a sunny, busy day.",
+  hs:[
+   {nx:.55,ny:.30,cat:"landmark",word:"Big Ben (the clock tower)",de:"",where:"in the middle, in the background",model:"In the middle I can see Big Ben.",more:"tall, with a big golden clock"},
+   {nx:.85,ny:.45,cat:"landmark",word:"the Houses of Parliament",de:"",where:"on the right, behind the bus",model:"On the right there are the Houses of Parliament.",more:"old and made of stone"},
+   {nx:.45,ny:.58,cat:"transport",word:"a double-decker bus / buses",de:"",where:"in the middle",model:"In the middle there is a red double-decker bus.",more:"red, with two floors"},
+   {nx:.33,ny:.63,cat:"transport",word:"a black cab (taxi) / taxis",de:"Taxi",where:"next to the bus",model:"Next to the bus I can see a black taxi.",more:"a typical London taxi"},
+   {nx:.16,ny:.66,cat:"people",word:"two tourists",de:"",where:"in the foreground, on the left",model:"In the foreground two tourists are taking a photo.",more:"because they are on holiday"},
+   {nx:.80,ny:.70,cat:"people",word:"a man with a map",de:"",where:"in the foreground, on the right",model:"On the right a man is looking at a map.",more:"because he doesn't know the way"},
+   {nx:.50,ny:.12,cat:"sky",word:"the sky",de:"",where:"at the top",model:"The sky is blue with some white clouds.",more:"a sunny day"},
+  ]},
+ {id:"tower-bridge",slug:"london-tower-bridge",title:"Tower Bridge",region:"london",ar:"4/3",
+  model:"This is a photo of London. In the middle I can see Tower Bridge, a famous bridge with two tall towers. A red bus is crossing the bridge. In the middle there is a small white boat on the river. In the foreground I can see the River Thames. On the left there is an old black lamp post. The sky is blue but there are many clouds. I think it looks beautiful.",
+  hs:[
+   {nx:.50,ny:.35,cat:"landmark",word:"a bridge / bridges (Tower Bridge)",de:"",where:"in the middle",model:"In the middle I can see Tower Bridge.",more:"famous, with two big towers"},
+   {nx:.42,ny:.22,cat:"landmark",word:"a tower / towers",de:"",where:"in the middle, at the top of the bridge",model:"The bridge has two tall towers.",more:"pointed at the top"},
+   {nx:.27,ny:.54,cat:"transport",word:"a red bus",de:"",where:"in the middle, on the bridge",model:"A red bus is crossing the bridge.",more:"small because it is far away"},
+   {nx:.43,ny:.64,cat:"transport",word:"a boat / boats",de:"",where:"in the middle, on the river",model:"In the middle there is a small white boat.",more:"white, it carries tourists"},
+   {nx:.50,ny:.82,cat:"nature",word:"a river (the River Thames)",de:"",where:"in the foreground, at the bottom",model:"In the foreground I can see the River Thames.",more:"grey because the sky is cloudy"},
+   {nx:.13,ny:.50,cat:"object",word:"a lamp post / lamp posts",de:"Laterne",where:"on the left",model:"On the left there is an old black lamp post.",more:"old, made of metal"},
+   {nx:.50,ny:.12,cat:"sky",word:"the sky",de:"",where:"at the top",model:"The sky is blue but there are many clouds.",more:"a bit cloudy"},
+  ]},
+ {id:"london-eye",slug:"london-eye",title:"The London Eye",region:"london",ar:"4/3",
+  model:"This is a photo of London. In the background, on the right, I can see the London Eye, a giant wheel. On the right there are some modern buildings and a tourist boat on the river. In the foreground a woman is sitting on a bench, and on the left some people are walking. In the middle there is a tall black lamp post and on the left a big green tree. I think it looks like a nice place for a walk.",
+  hs:[
+   {nx:.57,ny:.37,cat:"landmark",word:"a big wheel (the London Eye)",de:"",where:"in the background, on the right",model:"In the background I can see the London Eye.",more:"a giant wheel you can ride in"},
+   {nx:.88,ny:.55,cat:"landmark",word:"modern buildings",de:"",where:"in the background, on the right",model:"On the right there are some modern buildings.",more:"new, made of glass"},
+   {nx:.18,ny:.62,cat:"people",word:"people walking",de:"",where:"on the left, in the foreground",model:"On the left some people are walking.",more:"slowly, because they are on holiday"},
+   {nx:.32,ny:.80,cat:"people",word:"a woman on a bench",de:"",where:"in the foreground, in the middle",model:"In the foreground a woman is sitting on a bench.",more:"because she is resting"},
+   {nx:.64,ny:.68,cat:"transport",word:"a boat",de:"",where:"on the right, on the river",model:"On the right there is a boat on the Thames.",more:"a red-and-white tourist boat"},
+   {nx:.37,ny:.40,cat:"object",word:"a lamp post",de:"Laterne",where:"in the middle, in the foreground",model:"In the middle there is a tall black lamp post.",more:"old, with many lamps"},
+   {nx:.10,ny:.30,cat:"nature",word:"a tree / trees",de:"",where:"on the left, in the foreground",model:"On the left there is a big green tree.",more:"it gives shade"},
+  ]},
+ {id:"snowdonia",slug:"wales-snowdonia",title:"Snowdonia",region:"wales",ar:"4/3",
+  model:"This is a photo of Wales. In the background there are big grey mountains. In the middle I can see a dark blue lake. In the foreground there is a rocky path and purple heather. On the right there are some white sheep. On the left a lone hiker is walking on the path. At the top the sky is full of clouds. I think it looks quiet and beautiful.",
+  hs:[
+   {nx:.40,ny:.22,cat:"nature",word:"a mountain / mountains",de:"",where:"in the background",model:"In the background there are big mountains.",more:"high and grey"},
+   {nx:.55,ny:.42,cat:"nature",word:"a lake",de:"der See",where:"in the middle",model:"In the middle I can see a blue lake.",more:"dark blue and calm"},
+   {nx:.30,ny:.72,cat:"nature",word:"a path",de:"",where:"in the foreground",model:"In the foreground there is a rocky path.",more:"stony, so walking is hard"},
+   {nx:.80,ny:.74,cat:"nature",word:"heather",de:"Heidekraut",where:"in the foreground, on the right",model:"On the right there is purple heather.",more:"purple and pretty"},
+   {nx:.72,ny:.55,cat:"nature",word:"sheep",de:"",where:"in the middle, on the right",model:"In the middle I can see some white sheep.",more:"because they are hungry"},
+   {nx:.20,ny:.52,cat:"people",word:"a hiker (walker)",de:"",where:"in the middle, on the left",model:"On the left there is a lone hiker on the path.",more:"walking alone in the mountains"},
+   {nx:.50,ny:.10,cat:"sky",word:"the clouds",de:"",where:"at the top",model:"At the top the sky is full of clouds.",more:"cloudy but not raining"},
+  ]},
+ {id:"caernarfon",slug:"wales-caernarfon-castle",title:"Caernarfon Castle",region:"wales",ar:"4/3",
+  model:"This is a photo of Wales. In the middle there is a big old castle with many tall towers. At the top I can see some flags. On the left there are houses by the harbour. On the right a person is taking a photo of the castle. In the foreground there is a wooden bench and green grass. I would like to go there because the castle is amazing.",
+  hs:[
+   {nx:.50,ny:.38,cat:"landmark",word:"a castle",de:"Burg / Schloss",where:"in the middle",model:"In the middle there is a big old castle.",more:"old, made of grey stone"},
+   {nx:.40,ny:.22,cat:"landmark",word:"a tower / towers (turrets)",de:"",where:"in the middle, at the top",model:"The castle has many tall towers.",more:"round and very high"},
+   {nx:.83,ny:.15,cat:"object",word:"a flag / flags",de:"",where:"at the top of the towers",model:"At the top I can see some flags.",more:"they wave in the wind"},
+   {nx:.13,ny:.48,cat:"landmark",word:"a harbour with houses",de:"Hafen",where:"in the background, on the left",model:"On the left there are houses by the harbour.",more:"a small colourful town"},
+   {nx:.66,ny:.62,cat:"people",word:"a person taking a photo",de:"",where:"in the middle, on the right",model:"On the right a person is taking a photo of the castle.",more:"because the castle is beautiful"},
+   {nx:.25,ny:.78,cat:"object",word:"a bench / benches",de:"Bank (Sitzbank)",where:"in the foreground, on the left",model:"In the foreground there is a wooden bench.",more:"you can sit and rest there"},
+   {nx:.82,ny:.78,cat:"nature",word:"grass / a lawn",de:"",where:"in the foreground, on the right",model:"In the foreground there is green grass.",more:"green and freshly cut"},
+  ]},
+ {id:"anfield",slug:"liverpool-anfield",title:"Anfield Stadium",region:"liverpool",ar:"4/3",
+  model:"This is a photo of Liverpool. In the middle I can see a big football stadium with the red Liverpool crest. On the right there are old brick houses. In the foreground some people are walking across the plaza. In the middle there is a tall street lamp, and on the left there are benches and green plants. I think it looks busy because it is game day.",
+  hs:[
+   {nx:.50,ny:.40,cat:"landmark",word:"a stadium",de:"Stadion",where:"in the middle",model:"In the middle I can see a big football stadium.",more:"huge, because many people watch the games"},
+   {nx:.40,ny:.50,cat:"landmark",word:"a crest (logo)",de:"",where:"in the middle, on the wall",model:"On the wall there is the Liverpool crest.",more:"red and famous"},
+   {nx:.90,ny:.56,cat:"landmark",word:"terraced houses",de:"Reihenhäuser",where:"in the background, on the right",model:"On the right there are brick houses.",more:"old, made of red brick"},
+   {nx:.70,ny:.72,cat:"people",word:"people walking",de:"",where:"in the foreground, on the right",model:"In the foreground some people are walking across the plaza.",more:"because it is game day"},
+   {nx:.60,ny:.15,cat:"object",word:"a street lamp",de:"Laterne",where:"in the middle, at the top",model:"In the middle there is a tall street lamp.",more:"very high"},
+   {nx:.15,ny:.76,cat:"object",word:"a bench / benches",de:"Bank (Sitzbank)",where:"in the foreground, on the left",model:"In the foreground there are some benches.",more:"people can sit and wait"},
+   {nx:.10,ny:.58,cat:"nature",word:"trees and plants",de:"",where:"on the left, in the foreground",model:"On the left there are small trees and green plants.",more:"they grow in big planters"},
+  ]},
+ {id:"albert-dock",slug:"liverpool-albert-dock",title:"Royal Albert Dock",region:"liverpool",ar:"4/3",
+  model:"This is a photo of Liverpool. In the background there are big red-brick warehouses with red columns and round arches. Behind them there are two famous towers. In the foreground there is a long black boat and some white yachts on the water. On the left there is colourful bunting. The water in the dock is calm. I think it looks like a nice place to visit.",
+  hs:[
+   {nx:.25,ny:.23,cat:"landmark",word:"a warehouse / warehouses",de:"Lagerhaus",where:"in the background",model:"In the background there are big red-brick warehouses.",more:"old, with many windows"},
+   {nx:.20,ny:.42,cat:"object",word:"columns and arches",de:"Säule / Bogen",where:"in the middle, on the left",model:"On the left I can see red columns and round arches.",more:"red and very strong"},
+   {nx:.50,ny:.28,cat:"landmark",word:"two towers (the Liver Building)",de:"",where:"in the background, in the middle",model:"In the background there are the two towers of the Liver Building.",more:"a famous building in Liverpool"},
+   {nx:.50,ny:.68,cat:"transport",word:"a barge (a narrowboat)",de:"Kahn",where:"in the foreground, in the middle",model:"In the foreground there is a long black boat.",more:"a narrow boat for the canal"},
+   {nx:.28,ny:.55,cat:"transport",word:"a yacht / yachts",de:"Segelboot",where:"in the middle, on the left",model:"In the middle there are some white yachts.",more:"white sailing boats"},
+   {nx:.13,ny:.72,cat:"object",word:"bunting (colourful flags)",de:"Wimpelkette",where:"in the foreground, on the left",model:"On the left there is colourful bunting.",more:"bright and pretty"},
+   {nx:.62,ny:.60,cat:"nature",word:"the water (in the dock)",de:"",where:"in the middle",model:"In the middle there is water in the dock.",more:"calm and dark"},
+  ]},
+ {id:"cathedral",slug:"liverpool-cathedral",title:"Liverpool Cathedral",region:"liverpool",ar:"4/3",
+  model:"This is a photo of Liverpool. In the middle there is a giant red cathedral with a very tall tower. In the foreground a couple is walking across the square, and on the left some people are sitting on benches. On the right there are old black lamp posts. The square is big and wide. At the top the sky has many white clouds. I think it looks impressive.",
+  hs:[
+   {nx:.52,ny:.40,cat:"landmark",word:"a cathedral",de:"Kathedrale / Dom",where:"in the middle",model:"In the middle there is a giant cathedral.",more:"enormous, made of red stone"},
+   {nx:.52,ny:.18,cat:"landmark",word:"a tower",de:"",where:"in the middle, at the top",model:"In the middle the cathedral has a very tall tower.",more:"the highest part of the building"},
+   {nx:.46,ny:.74,cat:"people",word:"a couple walking",de:"",where:"in the foreground, in the middle",model:"In the foreground a couple is walking across the square.",more:"together, towards the cathedral"},
+   {nx:.18,ny:.68,cat:"people",word:"people on benches",de:"",where:"in the foreground, on the left",model:"On the left some people are sitting on benches.",more:"because they are tired"},
+   {nx:.82,ny:.56,cat:"object",word:"a lamp post / lamp posts",de:"Laterne",where:"in the foreground, on the right",model:"In the foreground there are old black lamp posts.",more:"old and elegant"},
+   {nx:.50,ny:.88,cat:"object",word:"a square (paved)",de:"",where:"in the foreground",model:"In the foreground there is a big paved square.",more:"wide and empty"},
+   {nx:.50,ny:.09,cat:"sky",word:"the sky",de:"",where:"at the top",model:"At the top the sky has many white clouds.",more:"a bright day"},
+  ]},
+ {id:"cliffs",slug:"ireland-cliffs-of-moher",title:"Cliffs of Moher",region:"ireland",ar:"4/3",
+  model:"This is a photo of Ireland. In the middle there are high sea cliffs. On the right I can see the Atlantic Ocean with white waves. In the foreground there is green grass and small yellow flowers. On the left some tourists are taking photos from a stone platform. At the top the sky is blue with white clouds. I think it looks amazing but a bit dangerous.",
+  hs:[
+   {nx:.55,ny:.42,cat:"nature",word:"a cliff / cliffs",de:"Klippe",where:"in the middle",model:"In the middle there are high sea cliffs.",more:"very high and steep"},
+   {nx:.85,ny:.45,cat:"nature",word:"the ocean (the sea)",de:"Meer",where:"on the right, in the background",model:"On the right I can see the Atlantic Ocean.",more:"dark blue with white waves"},
+   {nx:.18,ny:.72,cat:"nature",word:"grass / hills",de:"",where:"in the foreground, on the left",model:"In the foreground there is green grass.",more:"green because it rains a lot in Ireland"},
+   {nx:.45,ny:.86,cat:"nature",word:"wildflowers (yellow)",de:"",where:"in the foreground, at the bottom",model:"In the foreground there are small yellow flowers.",more:"yellow and pretty"},
+   {nx:.28,ny:.62,cat:"people",word:"tourists taking photos",de:"",where:"in the foreground, on the left",model:"In the foreground some tourists are taking photos.",more:"because the view is amazing"},
+   {nx:.16,ny:.56,cat:"object",word:"a platform (viewing platform)",de:"",where:"in the foreground, on the left",model:"On the left there is a stone viewing platform.",more:"because it is safe"},
+   {nx:.55,ny:.12,cat:"sky",word:"the sky",de:"",where:"at the top",model:"At the top the sky is blue with white clouds.",more:"a beautiful sunny day"},
+  ]},
+ {id:"beach",slug:"ireland-beach",title:"A Sandy Beach",region:"ireland",ar:"4/3",
+  model:"This is a photo of Ireland. In the middle there is a long sandy beach. On the right I can see a blue-green bay with small white waves. In the background there are green hills and a big mountain. On the left there are some white cottages. In the middle some people are walking with a little dog. I think it looks calm and relaxing.",
+  hs:[
+   {nx:.45,ny:.72,cat:"nature",word:"a beach; sand",de:"Strand",where:"in the foreground, in the middle",model:"In the middle there is a long sandy beach.",more:"golden and clean"},
+   {nx:.80,ny:.55,cat:"nature",word:"the sea (a bay)",de:"Meer",where:"on the right, in the middle",model:"On the right I can see a blue-green bay.",more:"blue-green with small waves"},
+   {nx:.62,ny:.50,cat:"nature",word:"a wave / waves",de:"",where:"in the middle, on the right",model:"In the middle there are white waves.",more:"gentle today"},
+   {nx:.22,ny:.40,cat:"nature",word:"a hill / hills (green)",de:"",where:"in the background, on the left",model:"In the background there are green hills.",more:"green and soft"},
+   {nx:.52,ny:.30,cat:"nature",word:"a mountain",de:"",where:"in the background, in the middle",model:"In the background there is a big mountain.",more:"high and brown"},
+   {nx:.13,ny:.37,cat:"object",word:"a cottage / cottages (white)",de:"Häuschen",where:"in the background, on the left",model:"On the left I can see some white cottages.",more:"small white houses"},
+   {nx:.33,ny:.56,cat:"people",word:"people (and a dog) walking",de:"",where:"in the middle, on the beach",model:"In the middle some people are walking with a little dog.",more:"slowly, because they are relaxed"},
+  ]},
+ {id:"oxford-street",slug:"london-oxford-street",title:"Oxford Street",region:"london",ar:"3/2",
+  model:"This is a photo of London at Christmas. At the top there are beautiful star-shaped Christmas lights. In the middle there is a red bus to Oxford Circus and a black London taxi. In the foreground there are big crowds of people. On both sides there are big shops. On the left there is a street sign: Oxford Street. It is evening, so the sky is dark blue. I think it looks busy and full of Christmas spirit.",
+  hs:[
+   {nx:.50,ny:.18,cat:"sky",word:"fairy lights (Christmas lights)",de:"Lichterkette",where:"at the top",model:"At the top there are star-shaped Christmas lights.",more:"beautiful, because it is Christmas time"},
+   {nx:.36,ny:.50,cat:"transport",word:"a red bus / buses",de:"",where:"in the middle, on the left",model:"In the middle there is a red bus to Oxford Circus.",more:"red and full of people"},
+   {nx:.51,ny:.63,cat:"transport",word:"a black taxi (cab) / taxis",de:"Taxi",where:"in the middle",model:"In the middle I can see a black London taxi.",more:"a typical black cab"},
+   {nx:.50,ny:.80,cat:"people",word:"a crowd of shoppers",de:"Menschenmenge",where:"in the foreground",model:"In the foreground there are big crowds of people.",more:"because Christmas is coming"},
+   {nx:.85,ny:.45,cat:"landmark",word:"a shop / shops (Zara, Next)",de:"",where:"on the left and right",model:"On both sides there are big shops.",more:"busy, because it is Christmas"},
+   {nx:.10,ny:.40,cat:"object",word:"a street sign (“Oxford Street”)",de:"",where:"in the foreground, on the left",model:"On the left there is a street sign: Oxford Street.",more:"it tells you the name of the street"},
+   {nx:.62,ny:.28,cat:"sky",word:"the evening sky (dusk)",de:"Dämmerung",where:"at the top, in the middle",model:"At the top the sky is dark blue because it is evening.",more:"it is getting dark, so the lights are on"},
+  ]},
+];
+const PIC_BY_ID={}; PICTURES.forEach(p=>PIC_BY_ID[p.id]=p);
+const REGION_ORDER=["london","wales","liverpool","ireland"];
+
+/* ---------- state ---------- */
+let S;
+function freshState(){ return {v:1, region:"london", reducedMotion:false, fontScale:1, sound:false,
+  mode:"explore", onboardingSeen:false, said:{}, found:{}, time:{} }; }
+let saveTimer=0;
+function save(){ clearTimeout(saveTimer); saveTimer=setTimeout(()=>{ S.updatedAt=Date.now(); store.write(S); },250); }
+function reducedActive(){ return S.reducedMotion || window.matchMedia("(prefers-reduced-motion: reduce)").matches; }
+function css(v){ return getComputedStyle(document.body).getPropertyValue(v).trim(); }
+
+/* progress helpers */
+const saidSet=id=>S.said[id]||(S.said[id]={});
+const foundSet=id=>S.found[id]||(S.found[id]={});
+const saidCount=id=>Object.keys(S.said[id]||{}).length;
+const isDone=id=>saidCount(id)>=PIC_BY_ID[id].hs.length;
+const globalDone=()=>PICTURES.filter(p=>isDone(p.id)).length;
+
+/* ---------- tiny audio blip (default off) ---------- */
+let actx=null;
+function blip(freq=520,dur=0.08,type="sine",vol=0.05){ if(!S.sound)return;
+  try{ actx=actx||new (window.AudioContext||window.webkitAudioContext)(); const o=actx.createOscillator(),g=actx.createGain();
+    o.type=type;o.frequency.value=freq;o.connect(g);g.connect(actx.destination);const t=actx.currentTime;
+    g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(vol,t+.012);g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+    o.start(t);o.stop(t+dur+.02);}catch(e){} }
+
+/* ============================================================ *
+ *  WEBGL AURORA (reused from Speak Up!)                        *
+ * ============================================================ */
+const Aurora=(function(){
+  const cv=$("#bg"); let gl,prog,uni={},raf=0,t=0,last=0,enabled=true,paused=false,degrade=0,fpsSamples=[];
+  let speed=0.035,lift=0.18,targetSpeed=0.035,targetLift=0.18;
+  const VS="attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}";
+  const FS=`precision highp float;uniform vec2 u_res;uniform float u_time;uniform float u_lift;uniform vec3 c0;uniform vec3 c1;uniform vec3 c2;uniform vec3 c3;
+  float hash(vec2 p){p=fract(p*vec2(123.34,456.21));p+=dot(p,p+45.32);return fract(p.x*p.y);}
+  float noise(vec2 p){vec2 i=floor(p),f=fract(p);float a=hash(i),b=hash(i+vec2(1,0)),c=hash(i+vec2(0,1)),d=hash(i+vec2(1,1));vec2 u=f*f*(3.-2.*f);return mix(a,b,u.x)+(c-a)*u.y*(1.-u.x)+(d-b)*u.x*u.y;}
+  float fbm(vec2 p){float v=0.,a=.5;for(int i=0;i<2;i++){v+=a*noise(p);p*=2.0;a*=.5;}return v;}
+  void main(){vec2 uv=gl_FragCoord.xy/u_res.xy;float ar=u_res.x/u_res.y;vec2 p=vec2(uv.x*ar,uv.y)*1.5;float t=u_time;
+   vec2 w=vec2(fbm(p+vec2(0.,t)),fbm(p+vec2(5.2,-t*0.8)));float n=fbm(p+w*1.4+t*0.3);float m=fbm(p*1.25-w+t*0.2);
+   vec3 col=mix(c0,c1,smoothstep(.15,.85,n));col=mix(col,c2,smoothstep(.3,.95,m));col=mix(col,c3,smoothstep(.45,1.0,n*m+0.2));
+   col=mix(col,vec3(1.0),u_lift);col+=(hash(gl_FragCoord.xy)-0.5)*0.012;gl_FragColor=vec4(col,1.0);}`;
+  function compile(ty,src){const s=gl.createShader(ty);gl.shaderSource(s,src);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw gl.getShaderInfoLog(s);return s;}
+  function init(){ try{
+      gl=cv.getContext("webgl",{antialias:false,depth:false,alpha:true,premultipliedAlpha:false,powerPreference:"low-power"})||cv.getContext("experimental-webgl");
+      if(!gl)throw"no-webgl"; prog=gl.createProgram();
+      gl.attachShader(prog,compile(gl.VERTEX_SHADER,VS));gl.attachShader(prog,compile(gl.FRAGMENT_SHADER,FS));gl.linkProgram(prog);
+      if(!gl.getProgramParameter(prog,gl.LINK_STATUS))throw"link"; gl.useProgram(prog);
+      const buf=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buf);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);
+      const loc=gl.getAttribLocation(prog,"p");gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,2,gl.FLOAT,false,0,0);
+      ["u_res","u_time","u_lift","c0","c1","c2","c3"].forEach(n=>uni[n]=gl.getUniformLocation(prog,n));
+      cv.addEventListener("webglcontextlost",e=>{e.preventDefault();enabled=false;cancelAnimationFrame(raf);cv.style.display="none";},false);
+      resize(); setRegion(S.region); enabled=true; loop(0);
+    }catch(e){ enabled=false; cv.style.display="none"; } }
+  function resize(){ if(!gl)return; const dpr=Math.min(1.5,window.devicePixelRatio||1)*0.5;
+    const w=Math.max(2,Math.floor(innerWidth*dpr)),h=Math.max(2,Math.floor(innerHeight*dpr)); cv.width=w;cv.height=h;gl.viewport(0,0,w,h);
+    if(uni.u_res)gl.uniform2f(uni.u_res,w,h); }
+  function setRegion(r){ if(!gl)return; const c=REGIONS[r].c.map(hex=>{const n=parseInt(hex.slice(1),16);return[((n>>16)&255)/255,((n>>8)&255)/255,(n&255)/255];});
+    gl.useProgram(prog); gl.uniform3fv(uni.c0,c[0]);gl.uniform3fv(uni.c1,c[1]);gl.uniform3fv(uni.c2,c[2]);gl.uniform3fv(uni.c3,c[3]); }
+  function loop(ts){ raf=requestAnimationFrame(loop); if(!enabled||!gl)return; if(document.hidden||paused){last=ts;return;}
+    const dt=ts-last; const gate=degrade>=1?50:33; if(dt<gate)return;
+    if(last){fpsSamples.push(1000/dt);if(fpsSamples.length>40)fpsSamples.shift();} last=ts;
+    speed+=(targetSpeed-speed)*0.06;lift+=(targetLift-lift)*0.06;
+    if(!reducedActive())t+=(dt/1000)*speed; gl.uniform1f(uni.u_time,reducedActive()?12.0:t); gl.uniform1f(uni.u_lift,lift); gl.drawArrays(gl.TRIANGLES,0,3);
+    if(fpsSamples.length>=30){const avg=fpsSamples.reduce((a,b)=>a+b,0)/fpsSamples.length;
+      if(avg<30&&degrade<2){degrade++;fpsSamples=[];if(degrade>=2){enabled=false;cv.style.display="none";}}
+      else if(avg<46&&degrade<1){degrade=1;fpsSamples=[];}} }
+  return { init,resize,setRegion, pause(){paused=true;}, resume(){paused=false;last=0;},
+    pulse(){targetSpeed=0.09;targetLift=0.26;setTimeout(()=>{targetSpeed=0.035;targetLift=0.18;},650);},
+    get degrade(){return degrade;} };
+})();
+
+/* ============================================================ *
+ *  CANVAS2D PARTICLES + CONFETTI (reused from Speak Up!)       *
+ * ============================================================ */
+const FX=(function(){
+  const cv=$("#fx"),ctx=cv.getContext("2d"); let parts=[],confetti=[],rings=[],raf=0,running=false,last=0;
+  function resize(){const dpr=Math.min(2,window.devicePixelRatio||1);cv.width=innerWidth*dpr;cv.height=innerHeight*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);}
+  function ensure(){if(!running){running=true;last=0;raf=requestAnimationFrame(loop);}}
+  function burst(x,y,color,opts){ opts=opts||{}; if(reducedActive()){ring(x,y,color);return;}
+    let n=opts.count||(Aurora.degrade>=1?10:18); if(parts.length>110)n=Math.min(n,8);
+    for(let i=0;i<n;i++){const ang=Math.random()*Math.PI*2,sp=120+Math.random()*140,star=i<Math.max(2,n*0.22);
+      parts.push({x,y,vx:Math.cos(ang)*sp,vy:Math.sin(ang)*sp-40,r:star?6+Math.random()*3:2.5+Math.random()*2.5,life:560+Math.random()*200,age:0,
+        col:i%6===0?"#46E3A4":(i%3===0?"#ffffff":color),star});}
+    ring(x,y,color); blip(460+Math.random()*120,0.07,"triangle",0.045); ensure(); }
+  function ring(x,y,color){ if(reducedActive()&&rings.length>4)return; rings.push({x,y,col:color,age:0,life:360}); ensure(); }
+  function confettiBurst(){ if(reducedActive()){for(let i=0;i<60;i++)confetti.push({x:Math.random()*innerWidth,y:Math.random()*innerHeight*0.6,vx:0,vy:0,r:5+Math.random()*5,col:cc(),rot:0,vr:0,age:0,life:1});ensure();return;}
+    for(let i=0;i<120;i++)confetti.push({x:innerWidth*(0.2+Math.random()*0.6),y:-20-Math.random()*120,vx:(Math.random()-0.5)*120,vy:120+Math.random()*180,r:5+Math.random()*6,col:cc(),rot:Math.random()*6.28,vr:(Math.random()-0.5)*8,age:0,life:2600+Math.random()*1400}); ensure(); }
+  function cc(){const a=["#FF5470","#FFB13C","#36D6A0","#5B9BFF","#A98BFF","#FFD93C","#E477F2"];return a[(Math.random()*a.length)|0];}
+  function loop(ts){ const dt=last?Math.min(50,ts-last):16;last=ts; ctx.clearRect(0,0,innerWidth,innerHeight); const healthy=Aurora.degrade<1;
+    ctx.globalCompositeOperation=healthy?"source-over":"lighter";
+    for(let i=parts.length-1;i>=0;i--){const p=parts[i];p.age+=dt;const k=p.age/p.life;if(k>=1){parts.splice(i,1);continue;}
+      p.vx*=0.92;p.vy=p.vy*0.92+520*(dt/1000);p.x+=p.vx*(dt/1000);p.y+=p.vy*(dt/1000);const a=(1-k)*(1-k),r=p.r*(0.6+0.4*(1-k));
+      ctx.globalAlpha=a; if(healthy){ctx.shadowBlur=8;ctx.shadowColor=p.col;}else ctx.shadowBlur=0; ctx.fillStyle=p.col;
+      if(p.star)star(p.x,p.y,r); else {ctx.beginPath();ctx.arc(p.x,p.y,r,0,6.2832);ctx.fill();}}
+    ctx.shadowBlur=0;ctx.globalCompositeOperation="source-over";
+    for(let i=rings.length-1;i>=0;i--){const r=rings[i];r.age+=dt;const k=r.age/r.life;if(k>=1){rings.splice(i,1);continue;}
+      ctx.globalAlpha=0.5*(1-k);ctx.strokeStyle=r.col;ctx.lineWidth=3*(1-k);ctx.beginPath();ctx.arc(r.x,r.y,4+k*46,0,6.2832);ctx.stroke();}
+    for(let i=confetti.length-1;i>=0;i--){const c=confetti[i];c.age+=dt;const k=c.age/c.life;if(k>=1){confetti.splice(i,1);continue;}
+      if(c.vy){c.vy+=240*(dt/1000);c.x+=c.vx*(dt/1000);c.y+=c.vy*(dt/1000);c.rot+=c.vr*(dt/1000);}
+      ctx.globalAlpha=clamp(1-k*0.7,0,1);ctx.save();ctx.translate(c.x,c.y);ctx.rotate(c.rot);ctx.fillStyle=c.col;ctx.fillRect(-c.r/2,-c.r/2,c.r,c.r*0.6);ctx.restore();}
+    ctx.globalAlpha=1; if(parts.length||rings.length||confetti.length)raf=requestAnimationFrame(loop); else running=false; }
+  function star(x,y,r){ctx.beginPath();for(let i=0;i<5;i++){const o=i*2*Math.PI/5-Math.PI/2;ctx.lineTo(x+Math.cos(o)*r,y+Math.sin(o)*r);const o2=o+Math.PI/5;ctx.lineTo(x+Math.cos(o2)*r*0.45,y+Math.sin(o2)*r*0.45);}ctx.closePath();ctx.fill();}
+  function clear(){parts=[];confetti=[];rings=[];ctx.clearRect(0,0,innerWidth,innerHeight);}
+  return {resize,burst,ring,confettiBurst,clear};
+})();
+
+/* ============================================================ *
+ *  GALLERY                                                    *
+ * ============================================================ */
+function applyRegion(r){ S.region=r; document.body.dataset.region=r; const R=REGIONS[r];
+  document.body.style.setProperty("--accent",R.accent); document.body.style.setProperty("--accent-2",R.accent2); Aurora.setRegion(r); }
+function ringDash(r){ return (2*Math.PI*r).toFixed(1); }
+
+function renderGallery(){
+  applyRegion("london");
+  const root=$("#galleryBody"); root.innerHTML="";
+  REGION_ORDER.forEach(reg=>{
+    const pics=PICTURES.filter(p=>p.region===reg);
+    const sec=document.createElement("section"); sec.className="region-sec"; sec.dataset.region=reg;
+    const head=document.createElement("div"); head.className="region-head";
+    head.innerHTML=`<span class="region-dot" style="background:${REGIONS[reg].accent}"></span><span class="region-title">${REGIONS[reg].label}</span><span class="region-count">${pics.length} pictures</span>`;
+    sec.appendChild(head);
+    const grid=document.createElement("div"); grid.className="thumb-grid";
+    pics.forEach(p=>{
+      const total=p.hs.length, said=saidCount(p.id), done=isDone(p.id);
+      const C=2*Math.PI*15;
+      const btn=document.createElement("button"); btn.className="thumb"+(done?" done":""); btn.setAttribute("aria-label",`${p.title}, ${REGIONS[reg].label}, ${said} of ${total} done`);
+      btn.innerHTML=`<img src="images/${p.slug}.jpg" alt="${p.title}" loading="lazy" decoding="async" width="800" height="600">
+        <span class="rbadge" style="background:${REGIONS[reg].accent}"></span>
+        <svg class="pring" viewBox="0 0 34 34"><circle class="bg2" cx="17" cy="17" r="15" fill="none" stroke-width="3"/><circle class="fg2" cx="17" cy="17" r="15" fill="none" stroke-width="3" stroke-dasharray="${ringDash(15)}" stroke-dashoffset="${(C*(1-said/total)).toFixed(1)}" transform="rotate(-90 17 17)"/></svg>
+        <span class="donecheck">✓</span>
+        <span class="label"><span class="t">${p.title}</span><span class="s">${total} dots${said?` · ${said} said`:""}</span></span>`;
+      btn.addEventListener("click",()=>openPicture(p.id));
+      grid.appendChild(btn);
+    });
+    sec.appendChild(grid); root.appendChild(sec);
+  });
+  updateGlobalMeter();
+}
+function updateGlobalMeter(){ const d=globalDone(); $("#globalMeter").style.width=(d/PICTURES.length*100)+"%"; $("#globalMeterLbl").textContent=`${d} / ${PICTURES.length}`; }
+function filterRegion(r){ $$(".region-sec").forEach(s=>s.classList.toggle("hide", r!=="all"&&s.dataset.region!==r));
+  $$("#regionFilter .rf").forEach(b=>b.setAttribute("aria-pressed", b.dataset.region===r)); }
+
+/* ============================================================ *
+ *  PICTURE VIEW                                               *
+ * ============================================================ */
+let curPic=null, photoBox={x:0,y:0,w:0,h:0};
+function openPicture(id){
+  curPic=PIC_BY_ID[id];
+  applyRegion(curPic.region);
+  Aurora.pause(); FX.clear();
+  $("#pTitle").textContent=curPic.title;
+  $("#pRegion").textContent=REGIONS[curPic.region].label;
+  $("#screen-picture").classList.toggle("challenge", S.mode==="challenge");
+  $$("#modeSeg button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.mode===S.mode));
+  const img=$("#photoImg"); img.src="images/"+curPic.slug+".jpg"; img.alt=curPic.title;
+  img.onerror=()=>{ img.onerror=null; img.removeAttribute("src"); $("#photoFrame").style.background="linear-gradient(135deg,#cdd7e6,#dfe6f0)"; };
+  $("#photoFrame").style.aspectRatio=curPic.ar.replace("/"," / ");
+  app.dataset.screen="picture";
+  layoutPhoto(); renderHotspots(); updatePRing();
+  // start time tracking
+  curPic._t0=Date.now();
+  $("#pHint").style.opacity = saidCount(id)>0 ? "0" : "1";
+  if(!S.onboardingSeen) showOnboarding();
+  save();
+}
+function layoutPhoto(){
+  if(!curPic) return;
+  const wrap=$("#photoWrap"); const pad=parseFloat(getComputedStyle(wrap).paddingLeft)||10;
+  const availW=wrap.clientWidth-pad*2, availH=wrap.clientHeight-pad*2;
+  const [aw,ah]=curPic.ar.split("/").map(Number); const ar=aw/ah;
+  let w=availW, h=w/ar; if(h>availH){ h=availH; w=h*ar; }
+  const frame=$("#photoFrame");
+  frame.style.width=w+"px"; frame.style.height=h+"px";
+  const fr=frame.getBoundingClientRect();
+  photoBox={x:fr.left,y:fr.top,w:fr.width,h:fr.height};
+}
+function renderHotspots(){
+  const frame=$("#photoFrame");
+  frame.querySelectorAll(".hs").forEach(e=>e.remove());
+  const said=saidSet(curPic.id), found=foundSet(curPic.id);
+  curPic.hs.forEach((h,i)=>{
+    const c=CATS[h.cat];
+    const b=document.createElement("button"); b.className="hs"+(said[i]?" said":(found[i]?" found":""));
+    b.style.left=(h.nx*100)+"%"; b.style.top=(h.ny*100)+"%";
+    b.style.setProperty("--hcol",c.core); b.style.setProperty("--hring","rgba("+c.glow+",.35)"); b.style.setProperty("--hd",(i*0.12)+"s");
+    b.setAttribute("aria-label","Tip: "+h.word);
+    b.innerHTML=`<span class="glow"></span><span class="core"></span>`;
+    b.addEventListener("click",(e)=>{e.stopPropagation();openCard(i,b);});
+    frame.appendChild(b);
+  });
+}
+function updatePRing(){
+  const total=curPic.hs.length, said=saidCount(curPic.id), C=2*Math.PI*18;
+  $("#pRingFg").style.strokeDasharray=C.toFixed(1);
+  $("#pRingFg").style.strokeDashoffset=(C*(1-said/total)).toFixed(1);
+  $("#pRingLbl").textContent=said+"/"+total;
+}
+
+/* ---------- reveal card ---------- */
+let cardOpenIdx=-1;
+function openCard(i,dotEl){
+  const h=curPic.hs[i], c=CATS[h.cat];
+  const found=foundSet(curPic.id), said=saidSet(curPic.id);
+  const firstReveal=!found[i];
+  found[i]=true;
+  if(!dotEl.classList.contains("said")) dotEl.classList.add("found");
+  cardOpenIdx=i;
+  const card=$("#rcard");
+  card.style.setProperty("--ccore",c.core);
+  card.style.setProperty("--cinkbg",c.core);
+  card.style.setProperty("--cring","rgba("+c.glow+",.18)");
+  const challengeHidden = (S.mode==="challenge" && !said[i]);
+  card.innerHTML = challengeHidden ? coverHTML(h,c) : fullHTML(h,c,i,said[i]);
+  wireCard(card,h,i,dotEl,c);
+  // position
+  const dot=dotEl.getBoundingClientRect();
+  const dx=dot.left+dot.width/2, dy=dot.top+dot.height/2;
+  const sheet = innerWidth<820;   // iPad portrait (768) uses the bottom drawer so the card never covers the photo
+  card.classList.toggle("as-sheet",sheet);
+  $("#cardScrim").classList.add("show");
+  card.classList.remove("show"); card.style.left=""; card.style.top="";
+  if(!sheet) positionCard(card,dx,dy);   // offsetWidth/Height are valid at opacity:0 (no rAF needed)
+  // force a reflow so the show transition plays from the hidden state
+  void card.offsetWidth;
+  card.classList.add("show");
+  if(firstReveal && !challengeHidden) FX.burst(dx,dy,c.core,{count:14});
+  $("#pHint").style.opacity="0";
+  const f=card.querySelector("button"); if(f) try{f.focus({preventScroll:true});}catch(e){}
+  save();
+}
+function positionCard(card,dx,dy){
+  const m=12, off=26; const cw=card.offsetWidth, ch=card.offsetHeight;
+  let left=clamp(dx-cw/2, m, innerWidth-cw-m), top;
+  const below=dy+off, above=dy-off-ch;
+  if(below+ch<=innerHeight-m) top=below;
+  else if(above>=m) top=above;
+  else top=clamp(dy-ch/2, m, innerHeight-ch-m);
+  card.style.left=left+"px"; card.style.top=top+"px";
+}
+function coverHTML(h,c){
+  return `<button class="rc-close" aria-label="Close">✕</button>
+   <span class="rc-chip">${c.emoji} ${c.label}</span>
+   <div class="rc-cover">
+     <div style="font-size:34px;margin-top:6px">🎯</div>
+     <div class="ct">Can you say it?</div>
+     <div class="cs">Look at this spot and say it out loud — then check.</div>
+   </div>
+   <button class="btn rc-said" data-act="reveal">Check answer ✓</button>`;
+}
+function fullHTML(h,c,i,already){
+  const spk = (S.mode!=="challenge") ? `<button class="rc-spk" data-act="speak" aria-label="Hear it">🔊</button>` : "";
+  const de = h.de ? `<span class="rc-de">${h.de}</span>` : "";
+  const challenge = S.mode==="challenge";
+  const checkLine = challenge ? `<div style="font-size:13px;font-weight:700;color:var(--ink-600);margin-top:10px;text-align:center">Did you say something like this?</div>` : "";
+  const bottom = challenge
+    ? `<button class="btn rc-said done2" data-act="close">Got it 👍</button>`
+    : `<button class="btn rc-said ${already?'done2':''}" data-act="said">${already?'Said ✓ — say it again!':'I said it ✓'}</button>`;
+  return `<button class="rc-close" aria-label="Close">✕</button>
+   <span class="rc-chip">${c.emoji} ${c.label}</span>
+   <div class="rc-word">${spk}<span>${h.word}</span>${de}</div>
+   <div class="rc-where">📍 <span><b>${firstWhere(h.where)}</b>${restWhere(h.where)}</span></div>
+   ${checkLine}
+   <div class="rc-model">${h.model}</div>
+   <div class="rc-saymore"><span class="plus">+ say more</span><span>${h.model.replace(/\.$/,"")}, ${h.more}.</span></div>
+   ${bottom}`;
+}
+function firstWhere(w){ return w.split(",")[0]; }
+function restWhere(w){ const p=w.split(","); return p.length>1?","+p.slice(1).join(","):""; }
+function hl(sentence){ return sentence; }
+function wireCard(card,h,i,dotEl,c){
+  card.querySelectorAll("[data-act]").forEach(el=>{
+    el.addEventListener("click",ev=>{
+      ev.stopPropagation(); const act=el.dataset.act;
+      if(act==="reveal"){ markSaid(i,dotEl,c); // reveal full in challenge after saying
+        card.innerHTML=fullHTML(h,c,i,true); wireCard(card,h,i,dotEl,c);
+        const dot=dotEl.getBoundingClientRect(); if(innerWidth>=820) positionCard(card,dot.left+dot.width/2,dot.top+dot.height/2);
+        return; }
+      if(act==="said"){ markSaid(i,dotEl,c); el.classList.add("done2"); el.textContent="Said ✓"; setTimeout(closeCard,420); return; }
+      if(act==="close"){ closeCard(); return; }
+      if(act==="speak"){ speak(h.word); return; }
+    });
+  });
+  const cl=card.querySelector(".rc-close"); if(cl) cl.addEventListener("click",e=>{e.stopPropagation();closeCard();});
+}
+function markSaid(i,dotEl,c){
+  const said=saidSet(curPic.id); const wasDone=isDone(curPic.id);
+  if(!said[i]){ said[i]=true;
+    dotEl.classList.remove("found"); dotEl.classList.add("said");
+    const dot=dotEl.getBoundingClientRect(); FX.burst(dot.left+dot.width/2,dot.top+dot.height/2,c.core,{count:12});
+    updatePRing(); save();
+    if(!wasDone && isDone(curPic.id)) setTimeout(completePicture,360);
+  }
+}
+function closeCard(){ const card=$("#rcard"); card.classList.remove("show"); $("#cardScrim").classList.remove("show"); cardOpenIdx=-1;
+  setTimeout(()=>{ if(!card.classList.contains("show")) card.innerHTML=""; },240); // orphan stray handlers + remove focusable button behind scrim
+  if(curPic) $("#pHint").style.opacity = saidCount(curPic.id)>0 ? "0" : "1"; }
+
+/* speech synthesis (off by default, en-GB, never autoplay) */
+let voicesLoaded=false;
+function speak(text){ if(!("speechSynthesis"in window))return; try{ speechSynthesis.cancel();
+  const u=new SpeechSynthesisUtterance(text); u.lang="en-GB"; u.rate=0.9;
+  const vs=speechSynthesis.getVoices(); const gb=vs.find(v=>/en-GB/i.test(v.lang))||vs.find(v=>/en/i.test(v.lang)); if(gb)u.voice=gb;
+  speechSynthesis.speak(u);}catch(e){} }
+
+/* ---------- completion ---------- */
+function completePicture(){
+  const time=Math.max(1,Math.round((Date.now()-(curPic._t0||Date.now()))/1000));
+  const total=curPic.hs.length;
+  $("#endHead").textContent=`You can describe ${curPic.title}! 🎉`;
+  $("#endStats").innerHTML=`<div class="s"><span class="v">${total}</span><span class="k">words learned</span></div>
+    <div class="s"><span class="v">${total}</span><span class="k">said out loud</span></div>
+    <div class="s"><span class="v">${Math.floor(time/60)}:${String(time%60).padStart(2,"0")}</span><span class="k">time</span></div>`;
+  $("#modelText").innerHTML=curPic.model.match(/[^.!?]+[.!?]+/g).map(s=>`<span class="ln">${s.trim()}</span>`).join(" ");
+  $("#modelBox").classList.remove("show");
+  closeCard();
+  $("#endScrim").classList.add("show"); $("#endCard").classList.add("show");
+  FX.confettiBurst(); Aurora.pulse();
+  updateGlobalMeter();
+  save();
+}
+function closeEnd(){ $("#endScrim").classList.remove("show"); $("#endCard").classList.remove("show"); }
+function gotoGallery(){ closeEnd(); closeCard(); Aurora.resume(); app.dataset.screen="gallery"; renderGallery(); }
+function nextPicture(){
+  const idx=PICTURES.indexOf(curPic);
+  // prefer next not-done, else next
+  let n=null;
+  for(let k=1;k<=PICTURES.length;k++){ const cand=PICTURES[(idx+k)%PICTURES.length]; if(!isDone(cand.id)){n=cand;break;} }
+  if(!n) n=PICTURES[(idx+1)%PICTURES.length];
+  closeEnd(); openPicture(n.id);
+}
+function siblingPicture(dir){
+  const idx=PICTURES.indexOf(curPic); const n=PICTURES[(idx+dir+PICTURES.length)%PICTURES.length];
+  closeCard(); openPicture(n.id);
+}
+
+/* ---------- toast ---------- */
+let toastT=0;
+function toast(msg){ const t=$("#toast"); t.textContent=msg; t.classList.add("show"); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),1800); }
+
+/* ---------- onboarding ---------- */
+const OB=[{e:"👆",t:"Tap the glowing dots — learn the English word."},
+  {e:"🗣️",t:"Say the sentence out loud, then tap “I said it ✓”."},
+  {e:"🎯",t:"Found them all? Try Challenge — say them from memory."}];
+let obi=0;
+function showOnboarding(){ obi=0; renderOB(); $("#obBack").classList.add("show"); }
+function renderOB(){ $("#obEmoji").textContent=OB[obi].e; $("#obTitle").textContent=OB[obi].t;
+  $$("#obDots i").forEach((d,k)=>d.classList.toggle("on",k===obi)); $("#obNext").textContent=obi<OB.length-1?"Next":"Got it! 👍"; }
+
+/* ---------- service worker / offline ---------- */
+function registerSW(){
+  if(!("serviceWorker"in navigator)) return;
+  navigator.serviceWorker.register("sw.js").then(reg=>{
+    navigator.serviceWorker.addEventListener("message",ev=>{ if(ev.data&&ev.data.type==="cached"){ showOffline("Ready offline ✓"); } });
+  }).catch(()=>{});
+}
+function showOffline(txt){ const p=$("#offlinePill"); p.textContent=txt; p.classList.add("show"); setTimeout(()=>p.classList.remove("show"),2600); }
+
+/* ============================================================ *
+ *  INIT + EVENTS                                              *
+ * ============================================================ */
+function applyAll(){ document.documentElement.style.setProperty("--fs",S.fontScale||1);
+  document.body.classList.toggle("reduce-motion",!!S.reducedMotion); }
+function bind(){
+  $("#regionFilter").addEventListener("click",e=>{const b=e.target.closest(".rf");if(!b)return;filterRegion(b.dataset.region);});
+  $("#backBtn").addEventListener("click",gotoGallery);
+  $("#modeSeg").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;
+    S.mode=b.dataset.mode; $$("#modeSeg button").forEach(x=>x.setAttribute("aria-pressed",x.dataset.mode===S.mode));
+    $("#screen-picture").classList.toggle("challenge",S.mode==="challenge"); closeCard(); renderHotspots(); save();
+    toast(S.mode==="challenge"?"Challenge mode 🎯 — words hidden":"Explore mode 🔍 — hints on");});
+  $("#prevBtn").addEventListener("click",()=>siblingPicture(-1));
+  $("#nextBtn").addEventListener("click",()=>siblingPicture(1));
+  $("#cardScrim").addEventListener("click",closeCard);
+  $("#endScrim").addEventListener("click",closeEnd);
+  $("#sayAllBtn").addEventListener("click",()=>$("#modelBox").classList.toggle("show"));
+  $("#speakupBtn").addEventListener("click",()=>{ location.href="index.html?region="+curPic.region; });
+  $("#nextPicBtn").addEventListener("click",nextPicture);
+  $("#backGalleryBtn").addEventListener("click",gotoGallery);
+  $("#obNext").addEventListener("click",()=>{ if(obi<OB.length-1){obi++;renderOB();} else { $("#obBack").classList.remove("show"); S.onboardingSeen=true; save(); } });
+  const dismissOB=()=>{ $("#obBack").classList.remove("show"); S.onboardingSeen=true; save(); };
+  $("#obSkip").addEventListener("click",dismissOB);
+  $("#obBack").addEventListener("click",e=>{ if(e.target===$("#obBack")) dismissOB(); });
+  document.addEventListener("keydown",e=>{ if(e.key==="Escape"){ if($("#rcard").classList.contains("show"))closeCard(); else if($("#endCard").classList.contains("show"))closeEnd(); else if($("#obBack").classList.contains("show")){$("#obBack").classList.remove("show");S.onboardingSeen=true;save();} } });
+  let rz=0; window.addEventListener("resize",()=>{clearTimeout(rz);rz=setTimeout(()=>{Aurora.resize();FX.resize();if(app.dataset.screen==="picture"){layoutPhoto();closeCard();}},160);});
+  window.addEventListener("orientationchange",()=>setTimeout(()=>{Aurora.resize();FX.resize();if(app.dataset.screen==="picture")layoutPhoto();},250));
+}
+function init(){
+  const saved=store.read();
+  S = (saved&&saved.v===1)? Object.assign(freshState(),saved) : freshState();
+  applyAll(); bind();
+  Aurora.init(); FX.resize();
+  renderGallery();
+  if(!store.ok){ toast("Heads up: your progress won't be saved on this device."); }
+  registerSW();
+  if("speechSynthesis"in window){ speechSynthesis.onvoiceschanged=()=>{voicesLoaded=true;}; speechSynthesis.getVoices(); }
+}
+if(document.readyState!=="loading") init(); else document.addEventListener("DOMContentLoaded",init);
+})();
+</script>
+</body>
+</html>

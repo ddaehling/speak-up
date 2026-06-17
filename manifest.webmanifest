@@ -1,0 +1,15 @@
+{
+  "name": "Describe It! — Picture Trainer",
+  "short_name": "Describe It!",
+  "description": "Tap dots on photos of Britain & Ireland to learn the words and describe the picture out loud.",
+  "start_url": "./describe.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#eef3fb",
+  "theme_color": "#eef3fb",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

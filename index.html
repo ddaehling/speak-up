@@ -126,6 +126,8 @@ input.name:focus{border-color:var(--accent);}
   border:1px solid color-mix(in srgb,var(--accent) 22%, transparent);font-size:calc(13.5px*var(--fs));color:var(--ink-700);line-height:1.45;text-align:left;min-height:54px;display:flex;align-items:center;}
 .start-actions{display:flex;gap:10px;margin-top:24px;align-items:center;justify-content:center;}
 .help-btn{width:54px;height:54px;border-radius:16px;flex:none;font-size:22px;}
+.describe-link{display:block;text-align:center;margin:16px 0 0;font-size:calc(13.5px*var(--fs));font-weight:700;color:var(--accent);text-decoration:none;font-family:var(--font-round);}
+.describe-link:active{opacity:.6;}
 
 /* ---------- PLAY SCREEN ---------- */
 #screen-play{display:none;}
@@ -346,6 +348,7 @@ input.name:focus{border-color:var(--accent);}
         <button class="btn ghost help-btn" id="helpBtn" aria-label="How it works">?</button>
         <button class="btn big" id="startBtn" style="flex:1">Let's go!</button>
       </div>
+      <a class="describe-link" href="describe.html">🔎 New here? Warm up → Describe a picture</a>
     </div>
   </section>
 
@@ -1346,6 +1349,9 @@ function init(){
   } else {
     fresh();
   }
+  // deep-link region from the "Describe It!" handoff (?region=london|wales|liverpool|ireland)
+  try{ const rp=new URLSearchParams(location.search).get("region");
+    if(rp && REGIONS[rp]){ S.region=rp; applyRegion(rp); $$("#regionChips .chip").forEach(c=>c.setAttribute("aria-pressed",c.dataset.region===rp)); } }catch(e){}
   if(!store.ok){ banner("Note: progress is not saved here (private mode?)"); }
   bindStart(); bindMenu(); bindOB();
   Aurora.init(); FX.resize();
