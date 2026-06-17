@@ -1119,16 +1119,14 @@ function starsFor(phase){
   const tierS=PILLS.filter(p=>p.ph===phase&&p.tier==="S"&&S.used[p.id]).length;
   const score=S.scoreByPhase[phase]||0;
   if(phase===1){
-    const reason=["p1_op_like","p1_op_visit","p1_op_notvisit","p1_op_another"].some(id=>S.used[id]);
-    if(score>=200*sc&&catsUsed===4&&tierS>=2&&S.longestFlow>=5) return 3;
-    if(score>=120*sc&&catsUsed>=3&&reason) return 2;
-    if(score>=60*sc&&used("start")&&used("describe")) return 1;
+    if(score>=140*sc&&catsUsed>=3&&tierS>=1) return 3;      // Gold: cover most steps + 1 strong phrase
+    if(score>=75*sc&&catsUsed>=2) return 2;                 // Silver
+    if(score>=30*sc&&(used("start")||used("describe"))) return 1; // Bronze: just get talking
     return 0;
   } else {
-    const q=PILLS.some(p=>p.ph===2&&p.cat==="ask"&&S.used[p.id]);
-    if(score>=220*sc&&catsUsed===4&&q&&tierS>=2&&S.longestFlow>=5) return 3;
-    if(score>=140*sc&&used("opinion2")&&used("compare")&&used("react")&&q) return 2;
-    if(score>=70*sc&&used("opinion2")&&used("react")) return 1;
+    if(score>=150*sc&&catsUsed>=3&&tierS>=1) return 3;      // Gold
+    if(score>=80*sc&&used("opinion2")&&used("react")) return 2;   // Silver
+    if(score>=40*sc&&used("opinion2")) return 1;            // Bronze
     return 0;
   }
 }
